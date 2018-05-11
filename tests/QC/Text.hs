@@ -10,6 +10,7 @@ import Prelude hiding (take, takeWhile)
 import QC.Common (liftOp, parseT)
 import qualified QC.Text.FastSet as FastSet
 import qualified QC.Text.Regressions as Regressions
+import qualified QC.Text.Scientific as Scientific
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 import Test.QuickCheck
@@ -192,4 +193,5 @@ tests = [
     , testProperty "nonmembers" nonmembers
     , testGroup "FastSet" FastSet.tests
     , testGroup "Regressions" Regressions.tests
+    , testGroup "Scientific" Scientific.tests
   ]

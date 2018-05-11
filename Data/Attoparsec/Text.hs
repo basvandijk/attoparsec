@@ -135,6 +135,7 @@ import Data.Attoparsec.Combinator
 import Data.Attoparsec.Number (Number(..))
 import Data.Scientific (Scientific)
 import qualified Data.Scientific as Sci
+import qualified Data.Scientific.Unsafe as Sci.Unsafe
 import Data.Attoparsec.Text.Internal (Parser, Result, parse, takeWhile1)
 import Data.Bits (Bits, (.|.), shiftL)
 import Data.Char (isAlpha, isDigit, isSpace, ord)
@@ -411,30 +412,37 @@ number = scientifically $ \s ->
 scientific :: Parser Scientific
 scientific = scientifically id
 
--- A strict pair
-data SP = SP !Integer {-# UNPACK #-}!Int
+-- A strict tuples
+data S2 = S2 !Integer {-# UNPACK #-}!Int
+data S3 = S3 !Integer {-# UNPACK #-}!Int {-# UNPACK #-}!Int
 
 {-# INLINE scientifically #-}
 scientifically :: (Scientific -> a) -> Parser a
 scientifically h = do
-  !positive <- ((== '+') <$> I.satisfy (\c -> c == '-' || c == '+')) <|>
-               pure True
+    !positive <- ((== '+') <$> I.satisfy (\c -> c == '-' || c == '+')) <|>
+                 pure True
 
-  n <- decimal
+    ds@(S2 n z1) <- T.foldl' stepC (S2 0 0) `fmap` takeWhile1 isDecimal
 
-  let f fracDigits = SP (T.foldl' step n fracDigits)
-                        (negate $ T.length fracDigits)
-      step a c = a * 10 + fromIntegral (ord c - 48)
+    let frac fracDigits = S3 f z e
+          where
+            S2 f z = T.foldl' stepC ds fracDigits
+            e = negate $ T.length fracDigits
 
-  SP c e <- (I.satisfy (=='.') *> (f <$> I.takeWhile isDigit)) <|>
-            pure (SP n 0)
+    S3 c z e <- (I.satisfy (=='.') *> (frac <$> I.takeWhile isDigit)) <|>
+                pure (S3 n z1 0)
 
-  let !signedCoeff | positive  =  c
-                   | otherwise = -c
+    let !signedCoeff | positive  =  c
+                     | otherwise = -c
 
-  (I.satisfy (\w -> w == 'e' || w == 'E') *>
-      fmap (h . Sci.scientific signedCoeff . (e +)) (signed decimal)) <|>
-    return (h $ Sci.scientific signedCoeff    e)
+    (I.satisfy (\w -> w == 'e' || w == 'E') *>
+        fmap (h . Sci.Unsafe.unsafeScientificFromNonNormalized signedCoeff z . (e +)) (signed decimal)) <|>
+      return (h $ Sci.Unsafe.unsafeScientificFromNonNormalized signedCoeff z    e)
+  where
+    stepC :: S2 -> Char -> S2
+    stepC (S2 c z) cd = case ord cd - 48 of
+                          0 -> S2 (c * 10) (z + 1)
+                          d -> S2 (c * 10 + toInteger d) 0
 
 -- | Parse a single digit, as recognised by 'isDigit'.
 digit :: Parser Char

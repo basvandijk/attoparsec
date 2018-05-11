@@ -9,7 +9,8 @@ import Data.Int (Int64)
 import Data.Word (Word8)
 import Prelude hiding (take, takeWhile)
 import QC.Common (ASCII(..), liftOp, parseBS, toStrictBS)
-import Test.Tasty (TestTree)
+import qualified QC.ByteString.Scientific as Scientific
+import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 import Test.QuickCheck
 import qualified Data.Attoparsec.ByteString as P
@@ -182,4 +183,5 @@ tests = [
     , testProperty "word8" word8
     , testProperty "members" members
     , testProperty "nonmembers" nonmembers
+    , testGroup "Scientific" Scientific.tests
   ]

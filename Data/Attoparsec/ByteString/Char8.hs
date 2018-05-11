@@ -143,6 +143,7 @@ import Data.Int (Int8, Int16, Int32, Int64)
 import Data.String (IsString(..))
 import Data.Scientific (Scientific)
 import qualified Data.Scientific as Sci
+import qualified Data.Scientific.Unsafe as Sci.Unsafe
 import Data.Word (Word8, Word16, Word32, Word64)
 import Prelude hiding (takeWhile)
 import qualified Data.Attoparsec.ByteString as A
@@ -537,36 +538,43 @@ number = scientifically $ \s ->
 scientific :: Parser Scientific
 scientific = scientifically id
 
--- A strict pair
-data SP = SP !Integer {-# UNPACK #-}!Int
+-- A strict tuples
+data S2 = S2 !Integer {-# UNPACK #-}!Int
+data S3 = S3 !Integer {-# UNPACK #-}!Int {-# UNPACK #-}!Int
 
 {-# INLINE scientifically #-}
 scientifically :: (Scientific -> a) -> Parser a
 scientifically h = do
-  let minus = 45
-      plus  = 43
-  sign <- I.peekWord8'
-  let !positive = sign == plus || sign /= minus
-  when (sign == plus || sign == minus) $
-    void $ I.anyWord8
+    let minus = 45
+        plus  = 43
+    sign <- I.peekWord8'
+    let !positive = sign == plus || sign /= minus
+    when (sign == plus || sign == minus) $
+      void $ I.anyWord8
 
-  n <- decimal
+    ds@(S2 n z1) <- B8.foldl' stepC (S2 0 0) `fmap` I.takeWhile1 isDigit_w8
 
-  let f fracDigits = SP (B8.foldl' step n fracDigits)
-                        (negate $ B8.length fracDigits)
-      step a w = a * 10 + fromIntegral (w - 48)
+    let frac fracDigits = S3 f z e
+            where
+              S2 f z = B8.foldl' stepC ds fracDigits
+              e = negate $ B8.length fracDigits
 
-  dotty <- I.peekWord8
-  -- '.' -> ascii 46
-  SP c e <- case dotty of
-              Just 46 -> I.anyWord8 *> (f <$> I.takeWhile isDigit_w8)
-              _       -> pure (SP n 0)
+    dotty <- I.peekWord8
+    -- '.' -> ascii 46
+    S3 c z e <- case dotty of
+                  Just 46 -> I.anyWord8 *> (frac <$> I.takeWhile isDigit_w8)
+                  _       -> pure (S3 n z1 0)
 
-  let !signedCoeff | positive  =  c
-                   | otherwise = -c
+    let !signedCoeff | positive  =  c
+                     | otherwise = -c
 
-  let littleE = 101
-      bigE    = 69
-  (I.satisfy (\ex -> ex == littleE || ex == bigE) *>
-      fmap (h . Sci.scientific signedCoeff . (e +)) (signed decimal)) <|>
-    return (h $ Sci.scientific signedCoeff    e)
+    let littleE = 101
+        bigE    = 69
+    (I.satisfy (\ex -> ex == littleE || ex == bigE) *>
+        fmap (h . Sci.Unsafe.unsafeScientificFromNonNormalized signedCoeff z . (e +)) (signed decimal)) <|>
+      return (h $ Sci.Unsafe.unsafeScientificFromNonNormalized signedCoeff z    e)
+  where
+    stepC :: S2 -> Word8 -> S2
+    stepC (S2 c z) w = case w - 48 of
+                         0 -> S2 (c * 10) (z + 1)
+                         d -> S2 (c * 10 + toInteger d) 0

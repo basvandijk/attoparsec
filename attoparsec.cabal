@@ -43,7 +43,7 @@ library
                  bytestring,
                  containers,
                  deepseq,
-                 scientific >= 0.3.1 && < 0.4,
+                 scientific >= 0.3.7.0 && < 0.4,
                  transformers,
                  text >= 1.1.1.3
   if impl(ghc < 7.4)
@@ -88,6 +88,7 @@ test-suite tests
   main-is:        QC.hs
   other-modules:  QC.Buffer
                   QC.ByteString
+                  QC.ByteString.Scientific
                   QC.Combinator
                   QC.Common
                   QC.IPv6.Internal
@@ -97,6 +98,7 @@ test-suite tests
                   QC.Text
                   QC.Text.FastSet
                   QC.Text.Regressions
+                  QC.Text.Scientific
 
   other-modules:  Data.Attoparsec.ByteString
                   Data.Attoparsec.ByteString.Buffer
@@ -132,6 +134,7 @@ test-suite tests
     scientific,
     tasty >= 0.11,
     tasty-quickcheck >= 0.8,
+    tasty-hunit      >= 0.8,
     text,
     transformers,
     vector
@@ -190,4 +193,3 @@ benchmark benchmarks
 source-repository head
   type:     git
   location: https://github.com/bos/attoparsec
-
